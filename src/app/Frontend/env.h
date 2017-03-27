@@ -31,7 +31,7 @@ public:
     time(false), whole(false), mode(LINEAR),
     statistics(false), printProgress(false),
     analysis(false), separateCompilation(false),
-    dump(false), intermediate(false),
+    dump(false), dontAnalyzeAutomaton(false), intermediate(false),
     treemodeOutput(false), m2l(false), 
     graphvizDFA(false), graphvizDAG(false),
     graphvizSatisfyingEx(false), graphvizCounterEx(false), 
@@ -53,6 +53,7 @@ public:
   bool separateCompilation;
   bool dump;
   bool dontDumpAutomaton;
+  bool dontAnalyzeAutomaton;
   bool intermediate;
   bool treemodeOutput;
   bool m2l;

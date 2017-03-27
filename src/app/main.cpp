@@ -14,6 +14,8 @@
 #include <sys/resource.h>
 #include <signal.h>
 #include <map>
+#include <fstream>
+#include <iostream>
 
 // < VATA Headers >
 #include <vata/bdd_bu_tree_aut.hh>
@@ -88,12 +90,13 @@ void PrintUsage()
 		<< "Options:\n"
 		<< " -t, --time 		 Print elapsed time\n"
 		<< " -d, --dump-all		 Dump AST, symboltable, and code DAG\n"
-		<< "     --no-automaton  	 Don't dump Automaton\n"
-		<< "     --use-mona-dfa  	 Uses MONA for building base automaton\n"
-		<< "     --no-expnf      	 Implies --use-mona-dfa, does not convert formula to exPNF\n"
+		<< "     --no-automaton  Don't dump Automaton\n"
+		<< "     --use-mona-dfa  Uses MONA for building base automaton\n"
+		<< "     --no-expnf      Implies --use-mona-dfa, does not convert formula to exPNF\n"
+        << " -n, --no-analysis   Don't analyze the automaton, only construct\n"
 		<< " -q, --quiet		 Quiet, don't print progress\n"
-		<< " -oX                 	 Optimization level [1 = safe optimizations [default], 2 = heuristic]\n"
-		<< " --method            	 Use either forward or backward method [backward [default], forward]\n"
+		<< " -oX                 Optimization level [1 = safe optimizations [default], 2 = heuristic]\n"
+		<< " --method            Use either forward or backward method [backward [default], forward]\n"
 		<< " --reorder-bdd		 Disable BDD index reordering [no, random, heuristic]\n\n"
 		<< "Example: ./dWiNA -t -d --reorder-bdd=random foo.mona\n\n";
 }
@@ -142,6 +145,8 @@ bool ParseArguments(int argc, char *argv[])
     	  options.reorder = RANDOM;
       else if(strcmp(argv[i], "--reorder-bdd=heuristic") == 0)
     	  options.reorder = HEURISTIC;
+	  else if(strcmp(argv[i], "--no-analysis") == 0)
+		  options.dontAnalyzeAutomaton = true;
       else if(strcmp(argv[i], "--no-automaton") == 0)
     	  options.dontDumpAutomaton = true;
       else if(strcmp(argv[i], "--use-mona-dfa") == 0)
@@ -164,6 +169,9 @@ bool ParseArguments(int argc, char *argv[])
 		  case 'q':
 			options.printProgress = false;
 			break;
+          case 'n':
+            options.dontAnalyzeAutomaton = true;
+            break;
 		  case 'o':
 			options.optimize = argv[i][2] - '0';
 			break;
@@ -580,7 +588,13 @@ int main(int argc, char *argv[])
   if(options.dump && !options.dontDumpAutomaton) {
 	  VATA::Serialization::AbstrSerializer* serializer =
 			  new VATA::Serialization::TimbukSerializer();
-	  std::cout << formulaAutomaton.DumpToString(*serializer, "symbolic") << "\n";
+	  std::string automata_filename(inputFileName);
+	  automata_filename += ".aut";
+
+	  std::ofstream automata_file;
+	  automata_file.open(automata_filename);
+	  automata_file << formulaAutomaton.DumpToString(*serializer, "symbolic") << "\n";
+	  automata_file.close();
 	  delete serializer;
   }
 
@@ -599,54 +613,57 @@ int main(int argc, char *argv[])
 #endif
 
   ///////// DECISION PROCEDURE /////////////////////////////////////////////
-  int decided;
-  try {
-	  // Deciding WS1S formula
-	  timer_deciding.start();
+  if (!options.dontAnalyzeAutomaton) {
+	  int decided;
 	  try {
-		  if(options.mode != TREE) {
-			  if(options.method == FORWARD) {
-				  decided = decideWS1S(formulaAutomaton, plist, nplist);
+		  // Deciding WS1S formula
+		  timer_deciding.start();
+		  try {
+			  if (options.mode != TREE) {
+				  if (options.method == FORWARD) {
+					  decided = decideWS1S(formulaAutomaton, plist, nplist);
+				  } else {
+					  decided = decideWS1S_backwards(formulaAutomaton, plist, nplist, formulaIsGround,
+													 topmostIsNegation);
+				  }
+				  // Deciding WS2S formula
 			  } else {
-				  decided = decideWS1S_backwards(formulaAutomaton, plist, nplist, formulaIsGround, topmostIsNegation);
+				  decided = decideWS2S(formulaAutomaton);
 			  }
-		  // Deciding WS2S formula
-		  } else {
-			  decided = decideWS2S(formulaAutomaton);
+		  } catch (std::bad_alloc) {
+			  std::cout << "[!] Insufficient memory for deciding\n";
+			  decided = -1;
 		  }
-	  } catch (std::bad_alloc) {
-		  std::cout << "[!] Insufficient memory for deciding\n";
-		  decided = -1;
-	  }
-	  timer_deciding.stop();
+		  timer_deciding.stop();
 
-	  // Outing the results of decision procedure
-	  cout << "[!] Formula is ";
-	  switch(decided) {
-	  case SATISFIABLE:
-		  cout << "'SATISFIABLE'\n";
-		  break;
-	  case UNSATISFIABLE:
-		  cout << "'UNSATISFIABLE'\n";
-		  break;
-	  case VALID:
-		  cout << "'VALID'\n";
-		  break;
-	  default:
-		  cout << "undecided due to an error.\n";
-		  break;
+		  // Outing the results of decision procedure
+		  cout << "[!] Formula is ";
+		  switch (decided) {
+			  case SATISFIABLE:
+				  cout << "'SATISFIABLE'\n";
+				  break;
+			  case UNSATISFIABLE:
+				  cout << "'UNSATISFIABLE'\n";
+				  break;
+			  case VALID:
+				  cout << "'VALID'\n";
+				  break;
+			  default:
+				  cout << "undecided due to an error.\n";
+				  break;
+		  }
+		  cout << "[*] Decision procedure elapsed time: ";
+		  timer_deciding.print();
+		  cout << "\n";
+		  // Something that was used is not supported by dWiNA
+	  } catch (NotImplementedException &e) {
+		  std::cerr << e.what() << std::endl;
 	  }
-	  cout << "[*] Decision procedure elapsed time: ";
-	  timer_deciding.print();
-	  cout << "\n";
-  // Something that was used is not supported by dWiNA
-  } catch (NotImplementedException& e) {
-	  std::cerr << e.what() << std::endl;
-  }
 
-  if(options.dump) {
-	  std::cout << "[*] State cache statistics:\n";
-	  StateCache.dumpStats();
+	  if (options.dump) {
+		  std::cout << "[*] State cache statistics:\n";
+		  StateCache.dumpStats();
+	  }
   }
 
   // Prints timing

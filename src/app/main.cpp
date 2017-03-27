@@ -580,7 +580,7 @@ int main(int argc, char *argv[])
   if(options.dump && !options.dontDumpAutomaton) {
 	  VATA::Serialization::AbstrSerializer* serializer =
 			  new VATA::Serialization::TimbukSerializer();
-	  std::cout << formulaAutomaton.DumpToString(*serializer) << "\n";
+	  std::cout << formulaAutomaton.DumpToString(*serializer, "symbolic") << "\n";
 	  delete serializer;
   }
 

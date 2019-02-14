@@ -1,5 +1,5 @@
  **
- * dWiNA - Deciding WSkS using non-deterministic automata 
+ * dWiNA - Deciding WS1S using non-deterministic automata 
  * 
  * Copyright (c) 2014  Tomas Fiedor <ifiedortom@fit.vutbr.cz>
  **************************************************************
@@ -7,8 +7,8 @@
  * About *
  *********
   
-  dWiNA is an implementation of backward decision procedure for WSkS logic 
-  (weak second-order theory of k successors). The tool is using libvata a 
+  dWiNA is an implementation of backward decision procedure for WS1S logic 
+  (weak second-order theory of 1 successors). The tool is using libvata a 
   highly optimised non-deterministic finite tree automata library that supports 
   semi-symbolic encoding using multi-terminal binary decision diagrams (MTBDDs) for
   storing transition table of the automaton. Procedure generates state space on-the-fly
@@ -60,7 +60,7 @@ notation.
 For full syntax for MONA tool consult the tool manual at http://www.brics.dk/mona/mona14.pdf.
 
 program ::= (header;)? (declaration;)+
-header ::=  ws1s | ws2s
+header ::=  ws1s
 
 declaration ::= formula
              |  var0 (varname)+

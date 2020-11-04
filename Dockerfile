@@ -1,5 +1,8 @@
 FROM debian:jessie
+
+# add dependencies
 RUN apt-get update && apt-get install -y \
+  autotools-dev \
   automake \
   git \
   cmake \
@@ -10,16 +13,25 @@ RUN apt-get update && apt-get install -y \
   libboost-test-dev \
   flex \
   bison \
-  && rm -rf /var/lib/apt/lists/* \
-  && git clone git://github.com/ondrik/libvata.git \
-  && make -C libvata release \
-  && git clone https://github.com/cs-au-dk/MONA.git \
-  && cd MONA \
-  && ./configure \
-  && make lib
+  && rm -rf /var/lib/apt/lists/*
 
+# clone MONA and libvata
+RUN git clone https://github.com/cs-au-dk/MONA.git \
+  && git clone git://github.com/ondrik/libvata.git
+
+# build MONA
+WORKDIR /MONA
+RUN ./configure
+RUN make lib
+
+# build libvata
+WORKDIR /libvata
+RUN make release
+
+# add dWiNA code
 COPY . /build-environment/
 
+# copy all required libraries to the expected places
 RUN cp -r /libvata/include /build-environment/include \
   && cp /libvata/build/src/libvata.a /build-environment/src/libs/ \
   && cp /MONA/BDD/.libs/libmonabdd.so /build-environment/src/libs/ \
